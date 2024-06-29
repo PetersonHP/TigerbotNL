@@ -2,5 +2,5 @@
 HUNL Texas Hold'em bot to compete with Slumbot
 
 ## Dependencies
-numpy - https://github.com/numpy/numpy  
+python 3.11
 pokerkit - https://github.com/uoftcprg/pokerkit
