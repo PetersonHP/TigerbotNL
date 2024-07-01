@@ -1,15 +1,14 @@
+import copy
 import sys
 
 from pokerkit import (
     Automation,
     BettingStructure,
     Deck,
-    HandHistory,
     KuhnPokerHand,
     Opening,
     State,
     Street,
-    Statistics
 )
 
 from actions import ActionType
@@ -18,7 +17,7 @@ from random_player import RandomPlayer
 
 def main():
     # Kuhn poker game state
-    state = State(
+    base_state = State(
         # automations
         (
             Automation.ANTE_POSTING,
@@ -55,36 +54,39 @@ def main():
         2,  # number of players
     )
 
-    rounds_to_play = sys.argv[1]
+    rounds_to_play = int(sys.argv[1])
     player_list = [RandomPlayer(), RandomPlayer()]
 
     # play rounds
     for round_num in range(rounds_to_play):
-        current_action = player_list[state.actor_index].get_action(state)
-        match current_action.get_type():
-            case ActionType.FOLD:
-                state.fold()
-            case ActionType.CHECK_CALL:
-                state.check_or_call()
-            case ActionType.BET_RAISE:
-                state.complete_bet_or_raise_to(current_action.get_amount())
-            case _:
-                raise ValueError("Unable to process player action.")
+        state = copy.deepcopy(base_state)
+
+        while (state.status):
+            current_action = player_list[state.actor_index].get_action(state)
+            match current_action.get_type():
+                case ActionType.FOLD:
+                    state.fold()
+                case ActionType.CHECK_CALL:
+                    state.check_or_call()
+                case ActionType.BET_RAISE:
+                    state.complete_bet_or_raise_to(current_action.get_amount())
+                case _:
+                    raise ValueError("Unable to process player action.")
+
+        # TODO get round winnings, log, record
 
     # print stats
-    hh = HandHistory.from_game_state(state)
-    stats = Statistics.from_hand_history(hh)
-    print("Game Statistics:")
+    # print("Game Statistics:")
 
-    print("Player 1:")
-    print(f"  Mean Payoff: {stats[0].payoff_mean}")
-    print(f"  Payof Standard Deviation: {stats[0].payoff_stdev}")
-    print(f"  Net Winnings: {stats[0].payoff_sum}")
+    # print("Player 1:")
+    # print(f"  Mean Payoff: {stats[0].payoff_mean}")
+    # print(f"  Payof Standard Deviation: {stats[0].payoff_stdev}")
+    # print(f"  Net Winnings: {stats[0].payoff_sum}")
 
-    print("Player 2:")
-    print(f"  Mean Payoff: {stats[1].payoff_mean}")
-    print(f"  Payof Standard Deviation: {stats[1].payoff_stdev}")
-    print(f"  Net Winnings: {stats[1].payoff_sum}")
+    # print("Player 2:")
+    # print(f"  Mean Payoff: {stats[1].payoff_mean}")
+    # print(f"  Payof Standard Deviation: {stats[1].payoff_stdev}")
+    # print(f"  Net Winnings: {stats[1].payoff_sum}")
 
 
 if __name__ == "__main__":
