@@ -1,6 +1,8 @@
 import copy
+import logging
 import sys
 
+import numpy as np
 from pokerkit import (
     Automation,
     BettingStructure,
@@ -13,9 +15,15 @@ from pokerkit import (
 
 from actions import ActionType
 from random_player import RandomPlayer
+from cli_player import CLIPlayer
 
+logging.basicConfig(level=logging.WARN)
 
 def main():
+    if len(sys.argv) != 2:
+        print("Rounds to play must be specified as the first argument.")
+        sys.exit()
+
     # Kuhn poker game state
     base_state = State(
         # automations
@@ -55,38 +63,52 @@ def main():
     )
 
     rounds_to_play = int(sys.argv[1])
-    player_list = [RandomPlayer(), RandomPlayer()]
+    player_list = [CLIPlayer(base_state), RandomPlayer(base_state)]
 
     # play rounds
+    payoffs = [[], []]
     for round_num in range(rounds_to_play):
         state = copy.deepcopy(base_state)
+        p0_pos = 0 if round_num % 2 == 0 else 1
+        p1_pos = 1 if round_num % 2 == 0 else 0
 
         while (state.status):
             current_action = player_list[state.actor_index].get_action(state)
             match current_action.get_type():
                 case ActionType.FOLD:
+                    logging.debug("Player %d folds.", (state.actor_index + 1))
                     state.fold()
                 case ActionType.CHECK_CALL:
+                    logging.debug("Player %d checks/calls",
+                                  (state.actor_index + 1))
                     state.check_or_call()
                 case ActionType.BET_RAISE:
+                    logging.debug("Player %d bets/raises.",
+                                  (state.actor_index + 1))
                     state.complete_bet_or_raise_to(current_action.get_amount())
                 case _:
                     raise ValueError("Unable to process player action.")
 
-        # TODO get round winnings, log, record
+        index = 0
+        for player in player_list:
+            player.handle_round_over(state, 0)
+            index += 1
+        payoffs[0].append(state.payoffs[p0_pos])
+        payoffs[1].append(state.payoffs[p1_pos])
+
 
     # print stats
-    # print("Game Statistics:")
+    print("Game Statistics:")
 
-    # print("Player 1:")
-    # print(f"  Mean Payoff: {stats[0].payoff_mean}")
-    # print(f"  Payof Standard Deviation: {stats[0].payoff_stdev}")
-    # print(f"  Net Winnings: {stats[0].payoff_sum}")
+    print("Player 1:")
+    print(f"  Mean Payoff: {np.mean(payoffs[0])}")
+    print(f"  Payoff Standard Deviation: {np.std(payoffs[0])}")
+    print(f"  Net Winnings: {np.sum(payoffs[0])}")
 
-    # print("Player 2:")
-    # print(f"  Mean Payoff: {stats[1].payoff_mean}")
-    # print(f"  Payof Standard Deviation: {stats[1].payoff_stdev}")
-    # print(f"  Net Winnings: {stats[1].payoff_sum}")
+    print("Player 2:")
+    print(f"  Mean Payoff: {np.mean(payoffs[1])}")
+    print(f"  Payoff Standard Deviation: {np.std(payoffs[1])}")
+    print(f"  Net Winnings: {np.sum(payoffs[1])}")
 
 
 if __name__ == "__main__":
