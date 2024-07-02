@@ -1,5 +1,6 @@
 import copy
 import logging
+import random
 import sys
 
 import numpy as np
@@ -19,6 +20,7 @@ from cli_player import CLIPlayer
 
 logging.basicConfig(level=logging.WARN)
 
+
 def main():
     if len(sys.argv) != 2:
         print("Rounds to play must be specified as the first argument.")
@@ -32,7 +34,6 @@ def main():
             Automation.BET_COLLECTION,
             Automation.BLIND_OR_STRADDLE_POSTING,
             Automation.CARD_BURNING,
-            Automation.HOLE_DEALING,
             Automation.BOARD_DEALING,
             Automation.HOLE_CARDS_SHOWING_OR_MUCKING,
             Automation.HAND_KILLING,
@@ -63,39 +64,53 @@ def main():
     )
 
     rounds_to_play = int(sys.argv[1])
-    player_list = [CLIPlayer(base_state), RandomPlayer(base_state)]
+    # specify player types
+    player_list = [RandomPlayer(base_state), RandomPlayer(base_state)]
 
     # play rounds
     payoffs = [[], []]
     for round_num in range(rounds_to_play):
         state = copy.deepcopy(base_state)
-        p0_pos = 0 if round_num % 2 == 0 else 1
-        p1_pos = 1 if round_num % 2 == 0 else 0
 
+        # deal
+        state.deck_cards = random.sample(
+            base_state.deck_cards, k=len(base_state.deck_cards))
+        for i in range(len(player_list)):
+            state.deal_hole()
+
+        # determine player order
+        if round_num % 2 == 0:
+            player_order = [0, 1]
+        else:
+            player_order = [1, 0]
+
+        # play hand
         while (state.status):
-            current_action = player_list[state.actor_index].get_action(state)
+            current_action = \
+                player_list[player_order[state.actor_index]].get_action(state)
             match current_action.get_type():
                 case ActionType.FOLD:
-                    logging.debug("Player %d folds.", (state.actor_index + 1))
+                    logging.debug("Player %d folds.",
+                                  (player_order[state.actor_index] + 1))
                     state.fold()
                 case ActionType.CHECK_CALL:
                     logging.debug("Player %d checks/calls",
-                                  (state.actor_index + 1))
+                                  (player_order[state.actor_index] + 1))
                     state.check_or_call()
                 case ActionType.BET_RAISE:
                     logging.debug("Player %d bets/raises.",
-                                  (state.actor_index + 1))
+                                  (player_order[state.actor_index] + 1))
                     state.complete_bet_or_raise_to(current_action.get_amount())
                 case _:
                     raise ValueError("Unable to process player action.")
 
+        # finish hand
         index = 0
         for player in player_list:
-            player.handle_round_over(state, 0)
+            player.handle_round_over(state, index)
             index += 1
-        payoffs[0].append(state.payoffs[p0_pos])
-        payoffs[1].append(state.payoffs[p1_pos])
-
+        payoffs[0].append(state.payoffs[player_order[0]])
+        payoffs[1].append(state.payoffs[player_order[1]])
 
     # print stats
     print("Game Statistics:")

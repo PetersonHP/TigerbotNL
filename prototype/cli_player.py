@@ -7,12 +7,12 @@ class CLIPlayer:
     def __init__(self, game_state: State) -> None:
         """Perform actions to initialize a player."""
         print("""
-              ***************************
-                 Begin Kuhn Poker Game
-              ***************************
+***************************
+   Begin Kuhn Poker Game
+***************************
               """)
 
-        self._starting_stack = game_state.stacks[0]
+        self._starting_stack = game_state.stacks[0] - 2
         self._current_stack = self._starting_stack
         return
 
@@ -30,8 +30,7 @@ class CLIPlayer:
 
         print("**************************************************************************************")
         print(f"Button: {'big blind' if my_index == 0 else 'none'}")
-        print(f"Stack: {self._current_stack}")
-        print(f"Hole Cards: {list(game_state.get_censored_hole_cards(my_index))}")
+        print(f"Hole Cards: {list(game_state.hole_cards[my_index])}")
         print("**************************************************************************************")
         while True:
             action_char = input(
@@ -62,15 +61,21 @@ class CLIPlayer:
                 else:
                     return Action(ActionType.BET_RAISE,
                                   game_state.min_completion_betting_or_raising_to_amount)
-            print("Valid options include 'f', 'c', and 'r'")
+            print("\aInvalid input. Valid options include 'f', 'c', and 'r'\n")
 
     def handle_round_over(self, game_state: State, my_index: int) -> None:
         print("**************************************************************************************")
         print(
-            f"Winnings this round: {game_state.stacks[my_index] - self._current_stack}")
-        self._current_stack = game_state.stacks[my_index]
+            f"Winnings this round: {game_state.stacks[my_index] - 2}")
+        self._current_stack += game_state.stacks[my_index] - 2
         print(
             f"Winnings Overall: {self._current_stack - self._starting_stack}\n")
-        print(f"Current Stack: {self._current_stack}")
+        print(f"Current Stack: {self._current_stack}\n")
+
+        print("""
+***************************
+        Next Round
+***************************
+              """)
 
         return
