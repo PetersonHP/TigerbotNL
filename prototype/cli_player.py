@@ -65,12 +65,12 @@ class CLIPlayer:
 
     def handle_round_over(self, game_state: State, my_index: int) -> None:
         print("**************************************************************************************")
-        print(
-            f"Winnings this round: {game_state.stacks[my_index] - 2}")
-        self._current_stack += game_state.stacks[my_index] - 2
-        print(
-            f"Winnings Overall: {self._current_stack - self._starting_stack}\n")
-        print(f"Current Stack: {self._current_stack}\n")
+        # print(
+        #     f"Winnings this round: {game_state.stacks[my_index] - 2}")
+        # self._current_stack += game_state.stacks[my_index] - 2
+        # print(
+        #     f"Winnings Overall: {self._current_stack - self._starting_stack}\n")
+        # print(f"Current Stack: {self._current_stack}\n")
 
         print("""
 ***************************

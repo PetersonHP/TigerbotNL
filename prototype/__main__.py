@@ -17,8 +17,9 @@ from pokerkit import (
 from actions import ActionType
 from random_player import RandomPlayer
 from cli_player import CLIPlayer
+from naive_player import NaivePlayer
 
-logging.basicConfig(level=logging.WARN)
+logging.basicConfig(level=logging.DEBUG)
 
 
 def main():
@@ -65,7 +66,7 @@ def main():
 
     rounds_to_play = int(sys.argv[1])
     # specify player types
-    player_list = [RandomPlayer(base_state), RandomPlayer(base_state)]
+    player_list = [CLIPlayer(base_state), NaivePlayer(base_state)]
 
     # play rounds
     payoffs = [[], []]
@@ -86,8 +87,12 @@ def main():
 
         # play hand
         while (state.status):
+            # DEBUG
+            print(state.streets)
+
             current_action = \
                 player_list[player_order[state.actor_index]].get_action(state)
+
             match current_action.get_type():
                 case ActionType.FOLD:
                     logging.debug("Player %d folds.",
@@ -111,6 +116,7 @@ def main():
             index += 1
         payoffs[0].append(state.payoffs[player_order[0]])
         payoffs[1].append(state.payoffs[player_order[1]])
+        print(f"Winnings this round: {payoffs[0][-1]}")
 
     # print stats
     print("Game Statistics:")
