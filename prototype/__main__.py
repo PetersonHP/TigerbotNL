@@ -88,7 +88,7 @@ def main():
         # play hand
         while (state.status):
             # DEBUG
-            print(state.streets)
+            print(state.hole_cards[0])
 
             current_action = \
                 player_list[player_order[state.actor_index]].get_action(state)
