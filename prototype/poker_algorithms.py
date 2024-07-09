@@ -36,8 +36,8 @@ class KuhnPokerCFR:
             pass
 
         def get(self,
-                        state: State,
-                        index: int) -> dict[ActionType, float]:
+                state: State,
+                index: int) -> dict[ActionType, float]:
 
             if state.actor_index != index:
                 raise ValueError("The player to act must be the same as the "
@@ -51,22 +51,66 @@ class KuhnPokerCFR:
 
             # bets
 
-            # checking or calling amount?
+            # action type
 
-            # completion_betting_or_raising_amount?
-
-        def set(self, state: State, action: ActionType, index: int) -> None:
+        def set(self, state: State, action: ActionType, index: int, new_val: float) -> None:
             if state.actor_index != index:
                 raise ValueError("The player to act must be the same as the "
                                  + "player to whom this regret table belongs.")
-            
+
             current = self._root
-            
-
-
+            # index
+            next_node = current.get(index)
+            if next_node is not None:
+                current = next_node
+            else:
+                current[index] = {
+                    tuple(state.hole_cards[index]): {
+                        state.antes: {
+                            tuple(state.bets): {
+                                action: new_val
+                            }
+                        }
+                    }
+                }
+            # hole cards
+            cards = tuple(state.hole_cards[index])
+            next_node = current.get(cards)
+            if next_node is not None:
+                current = next_node
+            else:
+                current[cards] = {
+                    state.antes: {
+                        tuple(state.bets): {
+                            action: new_val
+                        }
+                    }
+                }
+            # antes
+            next_node = current.get(state.antes)
+            if next_node is not None:
+                current = next_node
+            else:
+                current[state.antes] = {
+                    tuple(state.bets): {
+                        action: new_val
+                    }
+                }
+            # bets
+            bets = tuple(state.bets)
+            next_node = current.get(bets)
+            if next_node is not None:
+                current = next_node
+            else:
+                current[bets] = {
+                    action: new_val
+                }
+            # action
+            current[action] = new_val
+            # TODO review, finish, and test
 
         def update(self,
-                          state: State,
-                          action: ActionType,
-                          expression: Callable[[float, float], float]) -> None:
+                   state: State,
+                   action: ActionType,
+                   expression: Callable[[float, float], float]) -> None:
             pass
