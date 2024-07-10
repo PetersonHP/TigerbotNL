@@ -137,6 +137,7 @@ class KuhnPokerCFR:
         pass
 
     def train():
+        # TODO up next
         pass
 
     def load_regrets_from_file():
@@ -157,9 +158,9 @@ class KuhnPokerCFR:
 
         return result
 
-    def get_strategy(table: _RegretTable,
-                     state: State,
-                     index: int) -> dict[ActionType, float]:
+    def evaluate_strategy(table: _RegretTable,
+                          state: State,
+                          index: int) -> dict[ActionType, float]:
         """Returns a probability distribution over all possible actions
         given an information set"""
         regret_set = table.get(state, index)

@@ -1,5 +1,3 @@
-import json
-
 from pokerkit import (
     State,
     Automation,
@@ -66,5 +64,5 @@ add = lambda a, b: a / b
 
 print(table._root)
 print()
-strategy = KuhnPokerCFR.get_strategy(table, base_state, 1)
+strategy = KuhnPokerCFR.evaluate_strategy(table, base_state, 1)
 print(strategy)
