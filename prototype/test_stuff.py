@@ -11,7 +11,7 @@ from pokerkit import (
 from actions import ActionType
 from poker_algorithms import KuhnPokerCFR
 
-table = KuhnPokerCFR._RegretTable()
+table = KuhnPokerCFR._InfoSetTable()
 
 base_state = State(
     # automations

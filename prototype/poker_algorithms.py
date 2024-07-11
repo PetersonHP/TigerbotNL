@@ -1,6 +1,16 @@
+import copy
+import random
 from typing import Callable
 
-from pokerkit import State
+from pokerkit import (
+    Automation,
+    BettingStructure,
+    Deck,
+    KuhnPokerHand,
+    Opening,
+    State,
+    Street,
+)
 
 from actions import ActionType
 
@@ -10,7 +20,7 @@ from actions import ActionType
 class KuhnPokerCFR:
 
     # -------------------------------------------------------------------------
-    class _RegretTable:
+    class _InfoSetTable:
         """Associates info sets with probability distributions over actions"""
 
         def __init__(self):
@@ -131,14 +141,79 @@ class KuhnPokerCFR:
                 expression(action_distribution[action], k)
     # -------------------------------------------------------------------------
 
-    def __init__(self, iterations: int) -> None:
-        self._regrets = self._RegretTable()
-        self.iterations = iterations
-        pass
+    def __init__(self) -> None:
+        self._base_state = State(
+            # automations
+            (
+                Automation.ANTE_POSTING,
+                Automation.BET_COLLECTION,
+                Automation.BLIND_OR_STRADDLE_POSTING,
+                Automation.CARD_BURNING,
+                Automation.BOARD_DEALING,
+                Automation.HOLE_CARDS_SHOWING_OR_MUCKING,
+                Automation.HAND_KILLING,
+                Automation.CHIPS_PUSHING,
+                Automation.CHIPS_PULLING,
+            ),
+            Deck.KUHN_POKER,  # deck
+            (KuhnPokerHand,),  # hand types
+            # streets
+            (
+                Street(
+                    False,  # card burning
+                    (False,),  # hole card dealing statuses
+                    0,  # board dealing count
+                    False,  # standing pat or discarding
+                    Opening.POSITION,  # who opens the betting?
+                    1,  # min bet
+                    None,  # maximum number of completions/bettings/raisings
+                ),
+            ),
+            BettingStructure.FIXED_LIMIT,  # betting structure
+            True,  # ``False`` for big blind ante, otherwise ``True``
+            (1,) * 2,  # ante
+            (0,) * 2,  # blind or straddles
+            0,  # bring-in
+            (0,) * 0,  # starting stacks
+            2,  # number of players
+        )
 
-    def train():
-        # TODO up next
-        pass
+    def train(self, epochs: int) -> None:
+        regrets = [self._InfoSetTable(), self._InfoSetTable()]
+
+        for current_epoch in range(epochs):
+            state = copy.deepcopy(self._base_state)
+
+            # shuffle deck
+            state.deck_cards = random.sample(
+                self._base_state.deck_cards, k=len(self._base_state.deck_cards))
+            for i in range(len(regrets)):
+                state.deal_hole()
+
+            # determine player order
+            if current_epoch % 2 == 0:
+                player_order = [0, 1]
+            else:
+                player_order = [1, 0]
+
+            # play hand
+            while (state.status):
+                player_to_update = player_order[state.actor_index]
+                walk_trees(state, player_to_update, 1.0)
+                # TODO working here
+
+                current_action = None   # TODO get player action
+
+                match current_action.get_type():
+                    case ActionType.FOLD:
+                        state.fold()
+                    case ActionType.CHECK_CALL:
+                        state.check_or_call()
+                    case ActionType.BET_RAISE:
+                        state.complete_bet_or_raise_to(
+                            current_action.get_amount())
+                    case _:
+                        raise ValueError("Unable to process player action.")
 
     def load_regrets_from_file():
         pass
@@ -158,7 +233,7 @@ class KuhnPokerCFR:
 
         return result
 
-    def evaluate_strategy(table: _RegretTable,
+    def evaluate_strategy(table: _InfoSetTable,
                           state: State,
                           index: int) -> dict[ActionType, float]:
         """Returns a probability distribution over all possible actions
