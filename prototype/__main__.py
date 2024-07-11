@@ -86,10 +86,7 @@ def main():
             player_order = [1, 0]
 
         # play hand
-        while (state.status):
-            # DEBUG
-            print(state.bets)
-
+        while state.status:
             current_action = \
                 player_list[player_order[state.actor_index]].get_action(state)
 
@@ -110,6 +107,10 @@ def main():
                     raise ValueError("Unable to process player action.")
 
         # finish hand
+        # DEBUG
+        print(f"({state.stacks[0] - 2}, {state.stacks[1] - 2})")
+
+        # TODO fix
         index = 0
         for player in player_list:
             player.handle_round_over(state, index)

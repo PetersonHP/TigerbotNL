@@ -64,5 +64,5 @@ add = lambda a, b: a / b
 
 print(table._root)
 print()
-strategy = KuhnPokerCFR.evaluate_strategy(table, base_state, 1)
+strategy = KuhnPokerCFR.regret_matching(table, base_state, 1)
 print(strategy)

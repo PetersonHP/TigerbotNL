@@ -16,7 +16,7 @@ from actions import ActionType
 
 
 # list of child nodes (take action -> other stuff happens -> new InfoSet)
-# terminal? -> rrrexpected reward?
+# terminal? -> expected reward?
 class KuhnPokerCFR:
 
     # -------------------------------------------------------------------------
@@ -25,7 +25,6 @@ class KuhnPokerCFR:
 
         def __init__(self):
             self._root = {}
-            pass
 
         def get(self,
                 state: State,
@@ -141,6 +140,8 @@ class KuhnPokerCFR:
                 expression(action_distribution[action], k)
     # -------------------------------------------------------------------------
 
+    _STARTING_STACK_SIZE = 2
+
     def __init__(self) -> None:
         self._base_state = State(
             # automations
@@ -174,21 +175,26 @@ class KuhnPokerCFR:
             (1,) * 2,  # ante
             (0,) * 2,  # blind or straddles
             0,  # bring-in
-            (0,) * 0,  # starting stacks
+            (KuhnPokerCFR._STARTING_STACK_SIZE,) * 0,  # starting stacks
             2,  # number of players
         )
 
-    def train(self, epochs: int) -> None:
-        regrets = [self._InfoSetTable(), self._InfoSetTable()]
+    def train(self, epochs: int, epsilon: float, tau: float, beta: float) -> None:
+        """Train the model using Monte Carlo Counterfactual Regret Minimization
+        
+        Algorithm based on Gibson, et al. (2012)
+        """
+        regrets = KuhnPokerCFR._InfoSetTable()
+        cumulative_profile = KuhnPokerCFR._InfoSetTable()
 
         for current_epoch in range(epochs):
             state = copy.deepcopy(self._base_state)
 
-            # shuffle deck
+            # shuffle deck and deal hold cards
             state.deck_cards = random.sample(
                 self._base_state.deck_cards, k=len(self._base_state.deck_cards))
-            for i in range(len(regrets)):
-                state.deal_hole()
+            state.deal_hole()
+            state.deal_hole()
 
             # determine player order
             if current_epoch % 2 == 0:
@@ -196,32 +202,111 @@ class KuhnPokerCFR:
             else:
                 player_order = [1, 0]
 
-            # play hand
-            while (state.status):
-                player_to_update = player_order[state.actor_index]
-                walk_trees(state, player_to_update, 1.0)
-                # TODO working here
+            # stochastically walk the tree and update regrets and cumulative profile
+            KuhnPokerCFR.walk_tree(state,
+                      player_order[state.actor_index],
+                      1.0,
+                      epsilon,
+                      tau,
+                      beta,
+                      regrets,
+                      cumulative_profile)
 
-                current_action = None   # TODO get player action
+    @staticmethod
+    def walk_tree(base_state: State,
+                  player_index: int,
+                  sample_prob: float,
+                  epsilon: float,
+                  tau: float,
+                  beta: float,
+                  regrets: _InfoSetTable,
+                  cumulative_profile: _InfoSetTable) -> float:
+        """Stochastically walk the tree and update regrets and cumulative profile"""
 
-                match current_action.get_type():
-                    case ActionType.FOLD:
-                        state.fold()
-                    case ActionType.CHECK_CALL:
-                        state.check_or_call()
-                    case ActionType.BET_RAISE:
-                        state.complete_bet_or_raise_to(
-                            current_action.get_amount())
-                    case _:
-                        raise ValueError("Unable to process player action.")
+        # handle terminal state
+        if not base_state.status:
+            return base_state.stacks(player_index) - KuhnPokerCFR._STARTING_STACK_SIZE
 
-    def load_regrets_from_file():
-        pass
+        current_strategy = KuhnPokerCFR.regret_matching(regrets, base_state, 0)
 
-    def save_regrets_to_file():
-        pass
+        # handle opponent state (update cumulative profile)
+        if base_state.actor_index != player_index:
+            for action, action_probability in current_strategy.items():
+                new_prob = cumulative_profile.get(
+                    base_state, 0) + (action_probability / sample_prob)
+                cumulative_profile.set(base_state, action, 0, new_prob)
+            new_action = KuhnPokerCFR.sample_action(current_strategy)
+            new_state = copy.deepcopy(base_state)
+            KuhnPokerCFR.play_action(new_state, new_action)
+            return KuhnPokerCFR.walk_tree(new_state,
+                                          player_index,
+                                          sample_prob,
+                                          epsilon,
+                                          tau,
+                                          beta,
+                                          regrets,
+                                          cumulative_profile)
 
+        # handle player state (update regrets)
+        cumulative_strategy = cumulative_profile.get(base_state, player_index, 0)
+        cumulative_profile_sum = sum(cumulative_strategy.values())
+        action_values = {}
+        for action, action_probability in current_strategy.items():
+            probability_to_walk_path = max(
+                epsilon,
+                (beta + cumulative_strategy[action])
+                / (beta + cumulative_profile_sum)
+            )
+            action_values[action] = 0
+            if random.random() < probability_to_walk_path:
+                new_state = copy.deepcopy(base_state)
+                KuhnPokerCFR.play_action(new_state, action)
+                action_values[action] = KuhnPokerCFR.walk_tree(new_state,
+                                          player_index,
+                                          sample_prob,
+                                          epsilon,
+                                          tau,
+                                          beta,
+                                          regrets,
+                                          cumulative_profile)
+        for action, action_probability in current_strategy.items():
+            new_regret = regrets.get(base_state, 0)[action]
+            regrets.set(base_state, action, 0, new_regret)
+        new_state_value = 0
+        for action, value in action_values.items():
+            new_state_value += current_strategy[action] * value
+        return new_state_value
+
+    def load_regrets_from_file(self):
+        """Load a regret table from a file"""
+
+    def save_regrets_to_file(self):
+        """Save a regret table from a file"""
+
+    @staticmethod
+    def play_action(state: State, action: ActionType) -> None:
+        """Play the given action from the state"""
+        match action:
+            case ActionType.FOLD:
+                state.fold()
+            case ActionType.CHECK_CALL:
+                state.check_or_call()
+            case ActionType.BET_RAISE:
+                state.complete_bet_or_raise_to(
+                    state.min_completion_betting_or_raising_to_amount)
+            case _:
+                raise ValueError("Unable to process player action.")
+
+    @staticmethod
+    def sample_action(strategy: dict[ActionType, float]) -> ActionType:
+        """Sample an action from a strategy"""
+        actions = list(strategy.keys())
+        probabilities = strategy.values()
+        return random.choices(actions, weights=probabilities, k=1)[0]
+
+    @staticmethod
     def available_actions(state: State) -> list[ActionType]:
+        """Returns a list of available actions at a state"""
         result = []
 
         if state.can_fold():
@@ -233,11 +318,12 @@ class KuhnPokerCFR:
 
         return result
 
-    def evaluate_strategy(table: _InfoSetTable,
+    @staticmethod
+    def regret_matching(table: _InfoSetTable,
                           state: State,
                           index: int) -> dict[ActionType, float]:
         """Returns a probability distribution over all possible actions
-        given an information set"""
+        given an information set and a regret table"""
         regret_set = table.get(state, index)
 
         result = {}
