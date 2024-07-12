@@ -30,9 +30,9 @@ class KuhnPokerCFR:
                 state: State,
                 index: int) -> dict[ActionType, float] | None:
 
-            if state.actor_index != index:
-                raise ValueError("The player to act must be the same as the "
-                                 + "player to whom this regret table belongs.")
+            # if state.actor_index != index:
+            #     raise ValueError("The player to act must be the same as the "
+            #                      + "player to whom this regret table belongs.")
 
             current = self._root
             # index
@@ -70,9 +70,9 @@ class KuhnPokerCFR:
                 index: int,
                 new_val: float) -> None:
 
-            if state.actor_index != index:
-                raise ValueError("The player to act must be the same as the "
-                                 + "player to whom this regret table belongs.")
+            # if state.actor_index != index:
+            #     raise ValueError("The player to act must be the same as the "
+            #                      + "player to whom this regret table belongs.")
 
             current = self._root
             # index
@@ -143,6 +143,9 @@ class KuhnPokerCFR:
     _STARTING_STACK_SIZE = 2
 
     def __init__(self) -> None:
+        self._regrets = None
+        self._strategy = None
+
         self._base_state = State(
             # automations
             (
@@ -175,7 +178,7 @@ class KuhnPokerCFR:
             (1,) * 2,  # ante
             (0,) * 2,  # blind or straddles
             0,  # bring-in
-            (KuhnPokerCFR._STARTING_STACK_SIZE,) * 0,  # starting stacks
+            (KuhnPokerCFR._STARTING_STACK_SIZE,) * 2,  # starting stacks
             2,  # number of players
         )
 
@@ -211,6 +214,12 @@ class KuhnPokerCFR:
                       beta,
                       regrets,
                       cumulative_profile)
+            
+        self._regrets = regrets
+        self._strategy = cumulative_profile
+
+        # DEBUG
+        print(regrets._root)
 
     @staticmethod
     def walk_tree(base_state: State,
@@ -225,16 +234,23 @@ class KuhnPokerCFR:
 
         # handle terminal state
         if not base_state.status:
-            return base_state.stacks(player_index) - KuhnPokerCFR._STARTING_STACK_SIZE
+            return (base_state.stacks[player_index] -
+                    KuhnPokerCFR._STARTING_STACK_SIZE) / sample_prob
 
-        current_strategy = KuhnPokerCFR.regret_matching(regrets, base_state, 0)
+        current_strategy = KuhnPokerCFR.regret_matching(regrets, base_state, player_index)
 
-        # handle opponent state (update cumulative profile)
+        # handle opponent state
         if base_state.actor_index != player_index:
+            # update cumulative profile (after player's turn)
             for action, action_probability in current_strategy.items():
-                new_prob = cumulative_profile.get(
-                    base_state, 0) + (action_probability / sample_prob)
-                cumulative_profile.set(base_state, action, 0, new_prob)
+                old_dist = cumulative_profile.get(
+                    base_state, player_index)
+                if old_dist is None:
+                    new_prob = 0 + (action_probability / sample_prob)
+                else:
+                    new_prob = old_dist[action] + (action_probability / sample_prob)
+                cumulative_profile.set(base_state, action, player_index, new_prob)
+            # play opponent action
             new_action = KuhnPokerCFR.sample_action(current_strategy)
             new_state = copy.deepcopy(base_state)
             KuhnPokerCFR.play_action(new_state, new_action)
@@ -248,7 +264,15 @@ class KuhnPokerCFR:
                                           cumulative_profile)
 
         # handle player state (update regrets)
-        cumulative_strategy = cumulative_profile.get(base_state, player_index, 0)
+        # TODO handle when cumulative_strategy is None
+        cumulative_strategy = cumulative_profile.get(base_state, player_index)
+        # if informantion set unseen, set cumulative profile to 0
+        # TODO here
+        if cumulative_strategy is None:
+            for action in KuhnPokerCFR.available_actions(base_state):
+                cumulative_profile.set(base_state, action, player_index, 0)
+            cumulative_strategy = cumulative_profile.get(base_state, player_index)
+
         cumulative_profile_sum = sum(cumulative_strategy.values())
         action_values = {}
         for action, action_probability in current_strategy.items():
@@ -262,16 +286,16 @@ class KuhnPokerCFR:
                 new_state = copy.deepcopy(base_state)
                 KuhnPokerCFR.play_action(new_state, action)
                 action_values[action] = KuhnPokerCFR.walk_tree(new_state,
-                                          player_index,
-                                          sample_prob,
-                                          epsilon,
-                                          tau,
-                                          beta,
-                                          regrets,
-                                          cumulative_profile)
+                                        player_index,
+                                        min(1, sample_prob),
+                                        epsilon,
+                                        tau,
+                                        beta,
+                                        regrets,
+                                        cumulative_profile)
         for action, action_probability in current_strategy.items():
-            new_regret = regrets.get(base_state, 0)[action]
-            regrets.set(base_state, action, 0, new_regret)
+            new_regret = regrets.get(base_state, player_index)[action]
+            regrets.set(base_state, action, player_index, new_regret)
         new_state_value = 0
         for action, value in action_values.items():
             new_state_value += current_strategy[action] * value
