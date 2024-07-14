@@ -1,6 +1,8 @@
+from ast import literal_eval
 import copy
+import json
 import random
-from typing import Callable
+from typing import Any, Callable
 
 from pokerkit import (
     Automation,
@@ -25,6 +27,12 @@ class KuhnPokerCFR:
 
         def __init__(self):
             self._root = {}
+
+        def build_from_string(self, regrets: str):
+            obj = json.loads(regrets)
+            self._root = self._convert_keys_from_str(obj)
+            # DEBUG
+            print(self._root)
 
         def get(self,
                 state: State,
@@ -128,6 +136,30 @@ class KuhnPokerCFR:
             # action
             current[action] = new_val
 
+        def _convert_keys_to_str(self, obj: dict | list | Any):
+            if isinstance(obj, dict):
+                return {str(k): self._convert_keys_to_str(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [self._convert_keys_to_str(item) for item in obj]
+            return obj
+            
+        def _convert_keys_from_str(self, obj: dict | list | Any):
+            if isinstance(obj, dict):
+                return {literal_eval(k): self._convert_keys_from_str(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [self._convert_keys_from_str(obj) for item in obj]
+            return obj
+
+        def to_string(self) -> str:
+            str_keys = self._convert_keys_to_str(self._root)
+            result = json.dumps(str_keys)
+            return result
+
+        def from_string(self, obj: str) -> None:
+            obj = json.loads(obj)
+            self._root = {literal_eval(k): v for k, v in obj.items()}
+
+
         def update(self,
                    state: State,
                    action: ActionType,
@@ -142,10 +174,13 @@ class KuhnPokerCFR:
 
     _STARTING_STACK_SIZE = 2
 
-    def __init__(self) -> None:
-        self._regrets = None
-        self._strategy = None
+    def __init__(self, regrets: str | None = None) -> None:
+        if regrets is not None:
+            self._regrets = KuhnPokerCFR._InfoSetTable()
+            self._regrets.build_from_string(regrets)
+            return
 
+        self._regrets = None
         self._base_state = State(
             # automations
             (
@@ -207,19 +242,16 @@ class KuhnPokerCFR:
 
             # stochastically walk the tree and update regrets and cumulative profile
             KuhnPokerCFR.walk_tree(state,
-                      player_order[state.actor_index],
-                      1.0,
-                      epsilon,
-                      tau,
-                      beta,
-                      regrets,
-                      cumulative_profile)
-            
-        self._regrets = regrets
-        self._strategy = cumulative_profile
+                                   player_order[state.actor_index],
+                                   (1.0),
+                                   epsilon,
+                                   tau,
+                                   beta,
+                                   regrets,
+                                   cumulative_profile)
 
-        # DEBUG
-        print(regrets._root)
+        self._regrets = regrets
+        print(regrets.to_string())
 
     @staticmethod
     def walk_tree(base_state: State,
@@ -245,11 +277,12 @@ class KuhnPokerCFR:
             for action, action_probability in current_strategy.items():
                 old_dist = cumulative_profile.get(
                     base_state, player_index)
-                if old_dist is None:
+                if old_dist is None or old_dist.get(action) is None:
                     new_prob = 0 + (action_probability / sample_prob)
                 else:
                     new_prob = old_dist[action] + (action_probability / sample_prob)
                 cumulative_profile.set(base_state, action, player_index, new_prob)
+
             # play opponent action
             new_action = KuhnPokerCFR.sample_action(current_strategy)
             new_state = copy.deepcopy(base_state)
@@ -264,10 +297,8 @@ class KuhnPokerCFR:
                                           cumulative_profile)
 
         # handle player state (update regrets)
-        # TODO handle when cumulative_strategy is None
         cumulative_strategy = cumulative_profile.get(base_state, player_index)
         # if informantion set unseen, set cumulative profile to 0
-        # TODO here
         if cumulative_strategy is None:
             for action in KuhnPokerCFR.available_actions(base_state):
                 cumulative_profile.set(base_state, action, player_index, 0)
@@ -278,7 +309,7 @@ class KuhnPokerCFR:
         for action, action_probability in current_strategy.items():
             probability_to_walk_path = max(
                 epsilon,
-                (beta + cumulative_strategy[action])
+                (beta + (tau * cumulative_strategy[action]))
                 / (beta + cumulative_profile_sum)
             )
             action_values[action] = 0
@@ -286,19 +317,29 @@ class KuhnPokerCFR:
                 new_state = copy.deepcopy(base_state)
                 KuhnPokerCFR.play_action(new_state, action)
                 action_values[action] = KuhnPokerCFR.walk_tree(new_state,
-                                        player_index,
-                                        min(1, sample_prob),
-                                        epsilon,
-                                        tau,
-                                        beta,
-                                        regrets,
-                                        cumulative_profile)
-        for action, action_probability in current_strategy.items():
-            new_regret = regrets.get(base_state, player_index)[action]
-            regrets.set(base_state, action, player_index, new_regret)
+                                                               player_index,
+                                                               sample_prob * min(1, probability_to_walk_path),
+                                                               epsilon,
+                                                               tau,
+                                                               beta,
+                                                               regrets,
+                                                               cumulative_profile)
+
+        # calculate new state value
         new_state_value = 0
         for action, value in action_values.items():
             new_state_value += current_strategy[action] * value
+
+        # update regrets
+        for action, action_probability in current_strategy.items():
+            old_regret_set = regrets.get(base_state, player_index)
+            if old_regret_set is None or old_regret_set.get(action) is None:
+                regrets.set(base_state, action, player_index,
+                            action_values[action] - new_state_value)
+            else:
+                regrets.set(base_state, action, player_index, old_regret_set.get(action)
+                            + action_values[action] - new_state_value)
+
         return new_state_value
 
     def load_regrets_from_file(self):
@@ -306,6 +347,11 @@ class KuhnPokerCFR:
 
     def save_regrets_to_file(self):
         """Save a regret table from a file"""
+
+    def play(self, state: State) -> ActionType:
+        strategy = KuhnPokerCFR.regret_matching(self._regrets, state, state.actor_index)
+        choice = KuhnPokerCFR.sample_action(strategy)
+        return choice
 
     @staticmethod
     def play_action(state: State, action: ActionType) -> None:
@@ -356,14 +402,14 @@ class KuhnPokerCFR:
             for action in action_list:
                 result[action] = 1 / len(action_list)
         else:
-            regret_sum = sum(regret_set.values())
+            regret_set_positive = {k: max(0, v) for k, v in regret_set.items()}
+            regret_sum = sum(regret_set_positive.values())
             if regret_sum == 0:
                 for action in action_list:
                     result[action] = 1 / len(action_list)
             else:
                 for action in action_list:
-                    current_regret = (table.get(state, index)).get(action)
+                    current_regret = max(0, (table.get(state, index)).get(action))
                     result[action] = \
-                        current_regret / regret_sum if current_regret is not None else 0
-
+                        (current_regret / regret_sum) if current_regret is not None else 0
         return result

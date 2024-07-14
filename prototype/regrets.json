@@ -1,0 +1,78 @@
+{
+    "0": {
+        "(Js,)": {
+            "(1, 1)": {
+                "(0, 1)": {
+                    "ActionType.FOLD": 0.5,
+                    "ActionType.CHECK_CALL": -16885.364329461216
+                },
+                "(0, 0)": {
+                    "ActionType.CHECK_CALL": -8568.792409179754,
+                    "ActionType.BET_RAISE": 2.5719202814974276
+                }
+            }
+        },
+        "(Ks,)": {
+            "(1, 1)": {
+                "(0, 0)": {
+                    "ActionType.CHECK_CALL": 49.21689935512776,
+                    "ActionType.BET_RAISE": 41.71689935512786
+                },
+                "(0, 1)": {
+                    "ActionType.FOLD": -24982.5,
+                    "ActionType.CHECK_CALL": 1.5
+                }
+            }
+        },
+        "(Qs,)": {
+            "(1, 1)": {
+                "(0, 0)": {
+                    "ActionType.CHECK_CALL": -8615.434377361662,
+                    "ActionType.BET_RAISE": 2.3
+                },
+                "(0, 1)": {
+                    "ActionType.FOLD": -16320.462791275595,
+                    "ActionType.CHECK_CALL": 1.9999999999999964
+                }
+            }
+        }
+    },
+    "1": {
+        "(Js,)": {
+            "(1, 1)": {
+                "(1, 0)": {
+                    "ActionType.FOLD": 0.5,
+                    "ActionType.CHECK_CALL": -16619.5
+                },
+                "(0, 0)": {
+                    "ActionType.CHECK_CALL": -1.0,
+                    "ActionType.BET_RAISE": 1.0
+                }
+            }
+        },
+        "(Ks,)": {
+            "(1, 1)": {
+                "(0, 0)": {
+                    "ActionType.CHECK_CALL": -0.5,
+                    "ActionType.BET_RAISE": 0.5
+                },
+                "(1, 0)": {
+                    "ActionType.FOLD": -50221.5,
+                    "ActionType.CHECK_CALL": 1.5
+                }
+            }
+        },
+        "(Qs,)": {
+            "(1, 1)": {
+                "(1, 0)": {
+                    "ActionType.FOLD": -16536.5,
+                    "ActionType.CHECK_CALL": 1.5
+                },
+                "(0, 0)": {
+                    "ActionType.CHECK_CALL": -0.5,
+                    "ActionType.BET_RAISE": 0.5
+                }
+            }
+        }
+    }
+}
