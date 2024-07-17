@@ -14,8 +14,9 @@ from pokerkit import (
     Street,
 )
 
-from actions import ActionType
+from actions import Action, ActionType
 from random_player import RandomPlayer
+from cfr_player import CFRPlayer
 from cli_player import CLIPlayer
 from naive_player import NaivePlayer
 
@@ -66,7 +67,10 @@ def main():
 
     rounds_to_play = int(sys.argv[1])
     # specify player types
-    player_list = [CLIPlayer(base_state), NaivePlayer(base_state)]
+    player_list = [
+        NaivePlayer(base_state),
+        CFRPlayer(base_state, "regrets-8e8f89d3-6510-46a2-be06-b723dbb983b4-10mil.reg")
+    ]
 
     # play rounds
     payoffs = [[], []]
@@ -90,7 +94,14 @@ def main():
             current_action = \
                 player_list[player_order[state.actor_index]].get_action(state)
 
-            match current_action.get_type():
+            if isinstance(current_action, Action):
+                current_action = current_action.get_type()
+            elif isinstance(current_action, ActionType):
+                pass
+            else:
+                raise ValueError("Invalid action returned by player.")
+
+            match current_action:
                 case ActionType.FOLD:
                     logging.debug("Player %d folds.",
                                   (player_order[state.actor_index] + 1))
@@ -102,7 +113,7 @@ def main():
                 case ActionType.BET_RAISE:
                     logging.debug("Player %d bets/raises.",
                                   (player_order[state.actor_index] + 1))
-                    state.complete_bet_or_raise_to(current_action.get_amount())
+                    state.complete_bet_or_raise_to(state.min_completion_betting_or_raising_to_amount)
                 case _:
                     raise ValueError("Unable to process player action.")
 
