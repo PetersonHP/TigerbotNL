@@ -1,5 +1,4 @@
 import copy
-from enum import Enum
 import json
 import pickle
 import random
@@ -20,158 +19,159 @@ from actions import ActionType
 
 _STARTING_STACK_SIZE = 2
 
-class _InfoSetTable:
-    """Associates info sets with probability distributions over actions"""
+# TODO redesign the infoset table data structure
+# class _InfoSetTable:
+#     """Associates info sets with probability distributions over actions"""
 
-    def __init__(self):
-        self._root = {}
+#     def __init__(self):
+#         self._root = {}
 
-    def get(self,
-            state: State,
-            index: int) -> dict[ActionType, float] | None:
+#     def get(self,
+#             state: State,
+#             index: int) -> dict[ActionType, float] | None:
 
-        # if state.actor_index != index:
-        #     raise ValueError("The player to act must be the same as the "
-        #                      + "player to whom this regret table belongs.")
+#         # if state.actor_index != index:
+#         #     raise ValueError("The player to act must be the same as the "
+#         #                      + "player to whom this regret table belongs.")
 
-        current = self._root
-        # index
-        next_node = current.get(index)
-        if next_node is not None:
-            current = next_node
-        else:
-            return None
-        # hole_cards[index]
-        cards = tuple(state.hole_cards[index])
-        next_node = current.get(cards)
-        if next_node is not None:
-            current = next_node
-        else:
-            return None
-        # antes
-        next_node = current.get(state.antes)
-        if next_node is not None:
-            current = next_node
-        else:
-            return None
-        # bets
-        bets = tuple(state.bets)
-        next_node = current.get(bets)
-        if next_node is not None:
-            current = next_node
-        else:
-            return None
-        # action type
-        return current
+#         current = self._root
+#         # index
+#         next_node = current.get(index)
+#         if next_node is not None:
+#             current = next_node
+#         else:
+#             return None
+#         # hole_cards[index]
+#         cards = tuple(state.hole_cards[index])
+#         next_node = current.get(cards)
+#         if next_node is not None:
+#             current = next_node
+#         else:
+#             return None
+#         # antes
+#         next_node = current.get(state.antes)
+#         if next_node is not None:
+#             current = next_node
+#         else:
+#             return None
+#         # bets
+#         bets = tuple(state.bets)
+#         next_node = current.get(bets)
+#         if next_node is not None:
+#             current = next_node
+#         else:
+#             return None
+#         # action type
+#         return current
 
-    def set(self,
-            state: State,
-            action: ActionType,
-            index: int,
-            new_val: float) -> None:
+#     def set(self,
+#             state: State,
+#             action: ActionType,
+#             index: int,
+#             new_val: float) -> None:
 
-        # if state.actor_index != index:
-        #     raise ValueError("The player to act must be the same as the "
-        #                      + "player to whom this regret table belongs.")
+#         # if state.actor_index != index:
+#         #     raise ValueError("The player to act must be the same as the "
+#         #                      + "player to whom this regret table belongs.")
 
-        current = self._root
-        # index
-        next_node = current.get(index)
-        if next_node is not None:
-            current = next_node
-        else:
-            current[index] = {
-                tuple(state.hole_cards[index]): {
-                    state.antes: {
-                        tuple(state.bets): {
-                            action: new_val
-                        }
-                    }
-                }
-            }
-            return
-        # hole cards
-        cards = tuple(state.hole_cards[index])
-        next_node = current.get(cards)
-        if next_node is not None:
-            current = next_node
-        else:
-            current[cards] = {
-                state.antes: {
-                    tuple(state.bets): {
-                        action: new_val
-                    }
-                }
-            }
-            return
-        # antes
-        next_node = current.get(state.antes)
-        if next_node is not None:
-            current = next_node
-        else:
-            current[state.antes] = {
-                tuple(state.bets): {
-                    action: new_val
-                }
-            }
-            return
-        # bets
-        bets = tuple(state.bets)
-        next_node = current.get(bets)
-        if next_node is not None:
-            current = next_node
-        else:
-            current[bets] = {
-                action: new_val
-            }
-            return
-        # action
-        current[action] = new_val
+#         current = self._root
+#         # index
+#         next_node = current.get(index)
+#         if next_node is not None:
+#             current = next_node
+#         else:
+#             current[index] = {
+#                 tuple(state.hole_cards[index]): {
+#                     state.antes: {
+#                         tuple(state.bets): {
+#                             action: new_val
+#                         }
+#                     }
+#                 }
+#             }
+#             return
+#         # hole cards
+#         cards = tuple(state.hole_cards[index])
+#         next_node = current.get(cards)
+#         if next_node is not None:
+#             current = next_node
+#         else:
+#             current[cards] = {
+#                 state.antes: {
+#                     tuple(state.bets): {
+#                         action: new_val
+#                     }
+#                 }
+#             }
+#             return
+#         # antes
+#         next_node = current.get(state.antes)
+#         if next_node is not None:
+#             current = next_node
+#         else:
+#             current[state.antes] = {
+#                 tuple(state.bets): {
+#                     action: new_val
+#                 }
+#             }
+#             return
+#         # bets
+#         bets = tuple(state.bets)
+#         next_node = current.get(bets)
+#         if next_node is not None:
+#             current = next_node
+#         else:
+#             current[bets] = {
+#                 action: new_val
+#             }
+#             return
+#         # action
+#         current[action] = new_val
 
-    def update(self,
-                state: State,
-                action: ActionType,
-                index: int,
-                expression: Callable[[float, float], float],
-                k: float) -> None:
+#     def update(self,
+#                 state: State,
+#                 action: ActionType,
+#                 index: int,
+#                 expression: Callable[[float, float], float],
+#                 k: float) -> None:
 
-        action_distribution = self.get(state, index)
-        action_distribution[action] = \
-            expression(action_distribution[action], k)
+#         action_distribution = self.get(state, index)
+#         action_distribution[action] = \
+#             expression(action_distribution[action], k)
 
-    def _convert_keys_to_str(self, obj: dict | list | Any):
-        if isinstance(obj, dict):
-            return {str(k): self._convert_keys_to_str(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [self._convert_keys_to_str(item) for item in obj]
-        return obj
+#     def _convert_keys_to_str(self, obj: dict | list | Any):
+#         if isinstance(obj, dict):
+#             return {str(k): self._convert_keys_to_str(v) for k, v in obj.items()}
+#         if isinstance(obj, list):
+#             return [self._convert_keys_to_str(item) for item in obj]
+#         return obj
 
-    def to_string(self) -> str:
-        str_keys = self._convert_keys_to_str(self._root)
-        result = json.dumps(str_keys)
-        return result
+#     def to_string(self) -> str:
+#         str_keys = self._convert_keys_to_str(self._root)
+#         result = json.dumps(str_keys)
+#         return result
 
-    def save_to_file(self, filename):
-        """placeholder"""
-        with open(filename, 'wb') as file:
-            pickle.dump(self._root, file)
+#     def save_to_file(self, filename):
+#         """placeholder"""
+#         with open(filename, 'wb') as file:
+#             pickle.dump(self._root, file)
 
-    def load_from_file(self, filename):
-        """placeholder"""
-        with open(filename, 'rb') as file:
-            self._root = pickle.load(file)
+#     def load_from_file(self, filename):
+#         """placeholder"""
+#         with open(filename, 'rb') as file:
+#             self._root = pickle.load(file)
         
     
-    # def to_file(self, filename: str) -> None:
-    #     with open(filename + f"_{uuid.uuid4()}.dict", 'w+') as f:
-    #         f.write(str(self._root))
+#     # def to_file(self, filename: str) -> None:
+#     #     with open(filename + f"_{uuid.uuid4()}.dict", 'w+') as f:
+#     #         f.write(str(self._root))
 
-    # def from_file(self, filename: str) -> None:
-    #     obj = ''
-    #     with open(filename, 'r') as f:
-    #         for i in f.readlines():
-    #             obj = i
-    #     self._root = eval(obj)
+#     # def from_file(self, filename: str) -> None:
+#     #     obj = ''
+#     #     with open(filename, 'r') as f:
+#     #         for i in f.readlines():
+#     #             obj = i
+#     #     self._root = eval(obj)
 
 
 # list of child nodes (take action -> other stuff happens -> new InfoSet)
