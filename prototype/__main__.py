@@ -68,7 +68,7 @@ def main():
     rounds_to_play = int(sys.argv[1])
     # specify player types
     player_list = [
-        NaivePlayer(base_state),
+        RandomPlayer(base_state),
         CFRPlayer(base_state, "r1mil-new.reg")
     ]
 
