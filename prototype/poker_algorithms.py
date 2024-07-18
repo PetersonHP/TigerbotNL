@@ -1,8 +1,5 @@
 import copy
-import json
-import pickle
 import random
-from typing import Any, Callable
 import uuid
 
 from pokerkit import (
@@ -16,163 +13,9 @@ from pokerkit import (
 )
 
 from actions import ActionType
+from infosets import InfoSet, InfoSetMap
 
 _STARTING_STACK_SIZE = 2
-
-# TODO redesign the infoset table data structure
-# class _InfoSetTable:
-#     """Associates info sets with probability distributions over actions"""
-
-#     def __init__(self):
-#         self._root = {}
-
-#     def get(self,
-#             state: State,
-#             index: int) -> dict[ActionType, float] | None:
-
-#         # if state.actor_index != index:
-#         #     raise ValueError("The player to act must be the same as the "
-#         #                      + "player to whom this regret table belongs.")
-
-#         current = self._root
-#         # index
-#         next_node = current.get(index)
-#         if next_node is not None:
-#             current = next_node
-#         else:
-#             return None
-#         # hole_cards[index]
-#         cards = tuple(state.hole_cards[index])
-#         next_node = current.get(cards)
-#         if next_node is not None:
-#             current = next_node
-#         else:
-#             return None
-#         # antes
-#         next_node = current.get(state.antes)
-#         if next_node is not None:
-#             current = next_node
-#         else:
-#             return None
-#         # bets
-#         bets = tuple(state.bets)
-#         next_node = current.get(bets)
-#         if next_node is not None:
-#             current = next_node
-#         else:
-#             return None
-#         # action type
-#         return current
-
-#     def set(self,
-#             state: State,
-#             action: ActionType,
-#             index: int,
-#             new_val: float) -> None:
-
-#         # if state.actor_index != index:
-#         #     raise ValueError("The player to act must be the same as the "
-#         #                      + "player to whom this regret table belongs.")
-
-#         current = self._root
-#         # index
-#         next_node = current.get(index)
-#         if next_node is not None:
-#             current = next_node
-#         else:
-#             current[index] = {
-#                 tuple(state.hole_cards[index]): {
-#                     state.antes: {
-#                         tuple(state.bets): {
-#                             action: new_val
-#                         }
-#                     }
-#                 }
-#             }
-#             return
-#         # hole cards
-#         cards = tuple(state.hole_cards[index])
-#         next_node = current.get(cards)
-#         if next_node is not None:
-#             current = next_node
-#         else:
-#             current[cards] = {
-#                 state.antes: {
-#                     tuple(state.bets): {
-#                         action: new_val
-#                     }
-#                 }
-#             }
-#             return
-#         # antes
-#         next_node = current.get(state.antes)
-#         if next_node is not None:
-#             current = next_node
-#         else:
-#             current[state.antes] = {
-#                 tuple(state.bets): {
-#                     action: new_val
-#                 }
-#             }
-#             return
-#         # bets
-#         bets = tuple(state.bets)
-#         next_node = current.get(bets)
-#         if next_node is not None:
-#             current = next_node
-#         else:
-#             current[bets] = {
-#                 action: new_val
-#             }
-#             return
-#         # action
-#         current[action] = new_val
-
-#     def update(self,
-#                 state: State,
-#                 action: ActionType,
-#                 index: int,
-#                 expression: Callable[[float, float], float],
-#                 k: float) -> None:
-
-#         action_distribution = self.get(state, index)
-#         action_distribution[action] = \
-#             expression(action_distribution[action], k)
-
-#     def _convert_keys_to_str(self, obj: dict | list | Any):
-#         if isinstance(obj, dict):
-#             return {str(k): self._convert_keys_to_str(v) for k, v in obj.items()}
-#         if isinstance(obj, list):
-#             return [self._convert_keys_to_str(item) for item in obj]
-#         return obj
-
-#     def to_string(self) -> str:
-#         str_keys = self._convert_keys_to_str(self._root)
-#         result = json.dumps(str_keys)
-#         return result
-
-#     def save_to_file(self, filename):
-#         """placeholder"""
-#         with open(filename, 'wb') as file:
-#             pickle.dump(self._root, file)
-
-#     def load_from_file(self, filename):
-#         """placeholder"""
-#         with open(filename, 'rb') as file:
-#             self._root = pickle.load(file)
-        
-    
-#     # def to_file(self, filename: str) -> None:
-#     #     with open(filename + f"_{uuid.uuid4()}.dict", 'w+') as f:
-#     #         f.write(str(self._root))
-
-#     # def from_file(self, filename: str) -> None:
-#     #     obj = ''
-#     #     with open(filename, 'r') as f:
-#     #         for i in f.readlines():
-#     #             obj = i
-#     #     self._root = eval(obj)
-
 
 # list of child nodes (take action -> other stuff happens -> new InfoSet)
 # terminal? -> expected reward?
@@ -180,8 +23,7 @@ class KuhnPokerCFR:
 
     def __init__(self, regrets_filename: str | None = None) -> None:
         if regrets_filename is not None:
-            self._regrets = _InfoSetTable()
-            self._regrets.load_from_file(regrets_filename)
+            self._regrets = InfoSetMap(regrets_filename)
             return
 
         self._regrets = None
@@ -226,10 +68,19 @@ class KuhnPokerCFR:
         
         Algorithm based on Gibson, et al. (2012)
         """
-        regrets = _InfoSetTable()
-        cumulative_profile = _InfoSetTable()
+        regrets = InfoSetMap()
+        cumulative_profile = InfoSetMap()
 
+        epoch_to_stars = 70 / epochs
         for current_epoch in range(epochs):
+            print("[", end='')
+            stars = int(current_epoch * epoch_to_stars)
+            for i in range(stars):
+                print("*", end='')
+            for i in range(70 - stars - 1):
+                print("-", end='')
+            print("]")
+
             state = copy.deepcopy(self._base_state)
 
             # shuffle deck and deal hold cards
@@ -264,8 +115,8 @@ class KuhnPokerCFR:
                   epsilon: float,
                   tau: float,
                   beta: float,
-                  regrets: _InfoSetTable,
-                  cumulative_profile: _InfoSetTable) -> float:
+                  regrets: InfoSetMap,
+                  cumulative_profile: InfoSetMap) -> float:
         """Stochastically walk the tree and update regrets and cumulative profile"""
 
         # handle terminal state
@@ -274,18 +125,18 @@ class KuhnPokerCFR:
                     _STARTING_STACK_SIZE) / sample_prob
 
         current_strategy = KuhnPokerCFR.regret_matching(regrets, base_state, player_index)
+        current_infoset = InfoSet(base_state, player_index)
 
         # handle opponent state
         if base_state.actor_index != player_index:
             # update cumulative profile (after player's turn)
             for action, action_probability in current_strategy.items():
-                old_dist = cumulative_profile.get(
-                    base_state, player_index)
+                old_dist = cumulative_profile.get_actions(current_infoset)
                 if old_dist is None or old_dist.get(action) is None:
                     new_prob = 0 + (action_probability / sample_prob)
                 else:
                     new_prob = old_dist[action] + (action_probability / sample_prob)
-                cumulative_profile.set(base_state, action, player_index, new_prob)
+                cumulative_profile.set_action(current_infoset, action, new_prob)
 
             # play opponent action
             new_action = KuhnPokerCFR.sample_action(current_strategy)
@@ -301,12 +152,12 @@ class KuhnPokerCFR:
                                           cumulative_profile)
 
         # handle player state (update regrets)
-        cumulative_strategy = cumulative_profile.get(base_state, player_index)
+        cumulative_strategy = cumulative_profile.get_actions(current_infoset)
         # if informantion set unseen, set cumulative profile to 0
         if cumulative_strategy is None:
             for action in KuhnPokerCFR.available_actions(base_state):
-                cumulative_profile.set(base_state, action, player_index, 0)
-            cumulative_strategy = cumulative_profile.get(base_state, player_index)
+                cumulative_profile.set_action(current_infoset, action, 0)
+            cumulative_strategy = cumulative_profile.get_actions(current_infoset)
 
         cumulative_profile_sum = sum(cumulative_strategy.values())
         action_values = {}
@@ -336,20 +187,18 @@ class KuhnPokerCFR:
 
         # update regrets
         for action, action_probability in current_strategy.items():
-            old_regret_set = regrets.get(base_state, player_index)
+            old_regret_set = regrets.get_actions(current_infoset)
             if old_regret_set is None or old_regret_set.get(action) is None:
-                regrets.set(base_state, action, player_index,
-                            action_values[action] - new_state_value)
+                regrets.set_action(current_infoset, action, action_values[action] - new_state_value)
             else:
-                regrets.set(base_state, action, player_index, old_regret_set.get(action)
+                regrets.set_action(current_infoset, action, old_regret_set.get(action)
                             + action_values[action] - new_state_value)
 
         return new_state_value
 
     def load_regrets_from_file(self, filename: str):
         """Load a regret table from a file"""
-        self._regrets =_InfoSetTable()
-        self._regrets.load_from_file(filename)
+        self._regrets = InfoSetMap(filename)
 
     def save_regrets_to_file(self):
         """Save a regret table from a file"""
@@ -396,12 +245,13 @@ class KuhnPokerCFR:
         return result
 
     @staticmethod
-    def regret_matching(table: _InfoSetTable,
+    def regret_matching(table: InfoSetMap,
                           state: State,
                           index: int) -> dict[ActionType, float]:
         """Returns a probability distribution over all possible actions
         given an information set and a regret table"""
-        regret_set = table.get(state, index)
+        current_infoset = InfoSet(state, index)
+        regret_set = table.get_actions(current_infoset)
 
         result = {}
         action_list = KuhnPokerCFR.available_actions(state)
@@ -416,7 +266,7 @@ class KuhnPokerCFR:
                     result[action] = 1 / len(action_list)
             else:
                 for action in action_list:
-                    current_regret = max(0, (table.get(state, index)).get(action))
+                    current_regret = max(0, (table.get_actions(current_infoset)).get(action))
                     result[action] = \
                         (current_regret / regret_sum) if current_regret is not None else 0
         return result

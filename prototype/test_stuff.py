@@ -9,9 +9,10 @@ from pokerkit import (
 )
 
 from actions import ActionType
-from poker_algorithms import KuhnPokerCFR
+from infosets import InfoSet, InfoSetMap
 
-table = KuhnPokerCFR._InfoSetTable()
+table = InfoSetMap()
+
 
 base_state = State(
     # automations
@@ -52,17 +53,14 @@ base_state = State(
 base_state.deal_hole()
 base_state.deal_hole()
 
-# table.set(base_state, ActionType.CHECK_CALL, 0, 3)
+current_info = InfoSet(base_state, 0)
+table.set_action(current_info, ActionType.CHECK_CALL, 3.0)
 # table.set(base_state, ActionType.BET_RAISE, 0, 1)
-# table.set(base_state, ActionType.FOLD, 0, 57)
 
 base_state.complete_bet_or_raise_to()
 
-add = lambda a, b: a / b
-# table.update(base_state, ActionType.FOLD, 0, add, 12)
+current_info = InfoSet(base_state, 0)
+table.set_action(current_info, ActionType.FOLD, 57.68)
 
-
-print(table._root)
+print(table.to_string())
 print()
-strategy = KuhnPokerCFR.regret_matching(table, base_state, 1)
-print(strategy)

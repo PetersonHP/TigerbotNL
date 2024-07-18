@@ -16,7 +16,7 @@ from pokerkit import (
 
 from actions import Action, ActionType
 from random_player import RandomPlayer
-# from cfr_player import CFRPlayer
+from cfr_player import CFRPlayer
 from cli_player import CLIPlayer
 from naive_player import NaivePlayer
 
@@ -69,7 +69,7 @@ def main():
     # specify player types
     player_list = [
         NaivePlayer(base_state),
-        NaivePlayer(base_state)
+        CFRPlayer(base_state, "r1mil-new.reg")
     ]
 
     # play rounds

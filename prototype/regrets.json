@@ -1,0 +1,70 @@
+{
+    "2": {
+        "(Ks,)": {
+            "True": {
+                "0": {
+                    "0": {
+                        "ActionType.CHECK_CALL": 131.95560807289513,
+                        "ActionType.BET_RAISE": 155.4556080728962
+                    }
+                }
+            },
+            "False": {
+                "0": {
+                    "1": {
+                        "ActionType.FOLD": -748909.5,
+                        "ActionType.CHECK_CALL": 1.5
+                    },
+                    "0": {
+                        "ActionType.CHECK_CALL": -0.5,
+                        "ActionType.BET_RAISE": 0.5
+                    }
+                }
+            }
+        },
+        "(Qs,)": {
+            "False": {
+                "0": {
+                    "1": {
+                        "ActionType.FOLD": -331319.87519084185,
+                        "ActionType.CHECK_CALL": 2.250000000000007
+                    },
+                    "0": {
+                        "ActionType.CHECK_CALL": -0.5416666666666665,
+                        "ActionType.BET_RAISE": 2.458333333333334
+                    }
+                }
+            },
+            "True": {
+                "0": {
+                    "0": {
+                        "ActionType.CHECK_CALL": -85101.88753283529,
+                        "ActionType.BET_RAISE": 1.0
+                    }
+                }
+            }
+        },
+        "(Js,)": {
+            "False": {
+                "0": {
+                    "0": {
+                        "ActionType.CHECK_CALL": -1.0,
+                        "ActionType.BET_RAISE": 2.0
+                    },
+                    "1": {
+                        "ActionType.FOLD": 0.5,
+                        "ActionType.CHECK_CALL": -333826.85168605886
+                    }
+                }
+            },
+            "True": {
+                "0": {
+                    "0": {
+                        "ActionType.CHECK_CALL": -82916.45168605872,
+                        "ActionType.BET_RAISE": 2.4
+                    }
+                }
+            }
+        }
+    }
+}
